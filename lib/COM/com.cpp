@@ -14,6 +14,7 @@ RADIO_INFO com::initialize(void)
         radio_flag = (uint8_t) RADIO_OK;
         radio.enableDynamicPayloads(); 
         radio.enableAckPayload();
+        radio.enableDynamicPayloads();
     }
         
 

@@ -5,6 +5,79 @@
 #include "RF24.h"
 #include "pin_info.h"
 #include "SPI.h"
+#include "bsp.h"
+
+
+/**
+ *  CRC32 as checksum method, will be counted from Command till data. 
+ * 
+ */
+/**
+ * Data framing formation : 
+ * - Header 
+ * - Command
+ * - Data length    // 0 ( zero ) if no data 
+ * - Data ( 0 to n )
+ * - CRC3       |
+ * - CRC2       | using CRC32-bit, MSB first
+ * - CRC1       |
+ * - CRC0       |
+ * - ACK/NACK  
+ * - Footer     
+ *      -> ACK/NACK is data-replied to server for status data 
+ *      -> Footer is data received from server
+ * 
+*/
+
+/**
+ * 
+ *  Data position 
+ * 
+ *  Since the data will be cleared after HEADER_DATA 1 and 2 have been found 
+ *  and  UART_START_Flag was true
+ *  All data index will be reset to 0 ( zero ),  and starting to receive for the next data
+ *  until found the END_DATA
+ * */
+
+
+/* Header */
+#define COM_HEADER                      0xAA
+#define COM_END                         0xFE
+
+//Acknowledgement
+#define COM_NAK                         0xC5
+#define COM_ACK                         0x35
+
+//Power CMD
+#define COM_CMD_SLEEP                   0x78
+#define COM_CMD_RESTART                 0x87
+#define COM_CMD_PING                    0x89
+
+//Manufacturing CMD
+#define COM_CMD_UUID                    0x51
+#define COM_CMD_MODEL                   0x52
+#define COM_CMD_FIRMWARE                0x53
+#define COM_CMD_VERSION                 0x54
+#define COM_CMD_RN_SN                   0x55
+#define COM_CMD_WR_SN                   0x56
+
+
+// Sensor & data flag
+#define COM_CMD_LEVEL                   0x61
+#define COM_CMD_VOLUME                  0x62
+#define COM_CMD_RAW_DATA                0x63
+#define COM_CMD_SF                      0x64
+#define COM_CMD_PUMP                    0x65
+
+// Constant Value to calculate volume
+#define COM_CMD_RD_HEIGHT               0x71
+#define COM_CMD_WR_HEIGHT               0x72
+#define COM_CMD_RD_BASE                 0x73
+#define COM_CMD_WR_BASE                 0x74
+
+
+
+#define RAW_CMD_LEN                     5
 
 typedef enum 
 {
@@ -14,11 +87,39 @@ typedef enum
     RADIO_UNKNOWN=  3,
 }RADIO_INFO;
 
+typedef struct
+{
+    uint8_t header,
+            cmd,
+            data_length,
+            nack_ack,
+            footer,
+            data_location,
+            total_length;
+    byte dataRaw[10];
+    uint32_t CRC32_;
+}CMD_Identifier;
+
 class com
 {
     protected : 
         static RF24 radio;
+        static uint64_t id_radio;
+        static bool isCMDValid(byte key);
+        static bool isPackageValid(const uint8_t* raw, uint8_t length, CMD_Identifier* ret);
+        static void clearRawCom(void);
     private :
+        /**
+         * byte numbers of data raw_com
+         * 1. Header
+         * 2. CMD
+         * 3. DATA-length
+         * 4. Location of data from raw-entries  
+         * 5. Footer
+         */
+        static byte raw_com[RAW_CMD_LEN];    
+        
+        CMD_Identifier raw_ident;
         static uint8_t radio_flag;
     public :
         static RADIO_INFO initialize(void);

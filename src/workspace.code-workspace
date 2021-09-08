@@ -1,0 +1,14 @@
+{
+	"folders": [
+		{
+			"name": "tank_monitor",
+			"path": ".."
+		}
+	],
+	"settings": {
+		"files.associations": {
+			"eeprom.h": "c",
+			"version.h": "c"
+		}
+	}
+}

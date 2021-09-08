@@ -24,10 +24,16 @@ void setup() {
 }
 
 void loop() {
-  Serial.println("hallo");
-  delay(1000);
-  digitalWrite(LED_BUILTIN, HIGH);
-  delay(1000);
-  digitalWrite(LED_BUILTIN, LOW);
-  // put your main code here, to run repeatedly:
+  static uint64_t mils = millis();
+  static bool state=false;
+  
+  BSP::loop();
+  if( (millis() - mils) >= 1000)
+  {
+    com::loop();
+    Serial.println("hallo");
+    state = !state;
+    digitalWrite(LED_BUILTIN, state); 
+    mils = millis(); 
+  }
 }

@@ -3,18 +3,16 @@
 #include "CRC32.h"
 
 
-DEVICE_INFO BSP::info={0};
+HX710B BSP::waterLevel(SCK_WATER_PIN, DO_WATER_PIN, HX710B_DIFF1);
+uint8_t BSP::waterLevel_flag = (uint8_t) DEV_OK,
+        BSP::waterLevel_error_count = 0;
+uint32_t BSP::waterLevel_millis = 0;
 
+
+DEVICE_INFO BSP::info={0};
+DEVICE_PARAM BSP::param={0};
 void (*BSP::resetFunc)(void) = 0;
-// uint16_t updateCRC(uint16_t crc,uint8_t data)
-// {
-//     crc = ((crc >> 8) & 0xff) | ((crc << 8) & 0xff00);  // swap byte
-//     crc ^= data;
-//     crc ^= (crc & 0x00ff) >> 4;
-//     crc ^= (crc << 12);
-//     crc ^= (crc & 0x00ff) << 5;
-//     return (crc);
-// }
+
 
 char* BSP::BOARD_GET_UUID(char* UUID, uint8_t len)
 {
@@ -96,6 +94,12 @@ bool BSP::writeMemory(uint8_t address, uint8_t *pData, size_t len)
 
 DEVICE_STATUS BSP::initialize(void)
 {
+    pinMode(PUMP_PIN, OUTPUT);
+    digitalWrite(PUMP_PIN, LOW);
+    if ( !BSP::waterLevel.init() )
+        BSP::waterLevel_flag = (uint8_t) DEV_OK;
+    else
+        BSP::waterLevel_flag = (uint8_t) DEV_ERROR;
     if(!readMemory(DEV_INFO_ADDR, (uint8_t*)&BSP::info,sizeof(DEVICE_INFO)))
     {
         BOARD_RESET_INFO();
@@ -103,6 +107,54 @@ DEVICE_STATUS BSP::initialize(void)
         return DEV_ERROR;
     }
     return DEV_OK;
+}
+
+void BSP::loop(void)
+{
+    if( param.motorFlag )
+        digitalWrite(PUMP_PIN, HIGH);
+    else
+        digitalWrite(PUMP_PIN, LOW);
+    uint32_t rollOver = millis();
+    if( rollOver < BSP::waterLevel_millis )
+        BSP::waterLevel_millis = rollOver;
+    if( millis() - BSP::waterLevel_millis >= WATER_LEVEL_TS)
+    {
+        if( BSP::waterLevel_flag == (uint8_t) DEV_OK )
+        {
+            uint32_t buff_level = BSP::param.raw_data;
+            if ( BSP::waterLevel.read(&BSP::param.raw_data, 1000UL) != HX710B_OK )
+            {
+                BSP::waterLevel_error_count ++;
+                if(BSP::waterLevel_error_count  >= 5 )
+                {
+                    BSP::waterLevel_flag == (uint8_t) DEV_ERROR;
+                    BSP::param.raw_data =~ 0;
+                }
+                else
+                    BSP::param.raw_data = buff_level;
+            }
+            else
+            {
+                BSP::waterLevel_error_count = 0;
+                BSP::waterLevel_flag == (uint8_t) DEV_OK;
+            }
+                
+        }
+        else
+        {
+            if ( !BSP::waterLevel.init() )
+            {
+                BSP::waterLevel_flag = (uint8_t) DEV_OK;
+                BSP::waterLevel.read(&BSP::param.raw_data, 1000UL);
+            }
+            else
+                BSP::waterLevel_flag = (uint8_t) DEV_ERROR;
+        }
+        Serial.print(F("Water level data raw : "));
+        Serial.println((unsigned long)BSP::param.raw_data);
+        BSP::waterLevel_millis = millis();
+    }
 }
 
 
@@ -115,7 +167,14 @@ void BSP::print_device_info(void)
     Serial.print(F("Firmware : "));
     Serial.println(info.firm_ver);
     Serial.print(F("UUID : "));
-    Serial.println(info.UUID);
+    for( uint8_t ui = 0; ui < MAX_UUID_LENGTH; ui++)
+    {
+        Serial.print(F("0x"));
+        Serial.print(info.UUID[ui],HEX);
+        Serial.print(F("\t"));
+    }
+    Serial.println(F(""));
+    
     Serial.print(F("SN : "));
     Serial.println(info.SN);
 }

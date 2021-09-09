@@ -18,8 +18,8 @@
 #include "HX710B.h"
 
 #define DEV_INFO_ADDR       10
-#define DEV_TANK_ADDR       
-#define DEV_CAL_PARAM       
+#define DEV_CAL_PARAM       100
+#define DEV_TANK_ADDR       120
 
 
 #define MAX_UUID_LENGTH     8
@@ -27,6 +27,9 @@
 #define DEFAULT_MODEL           "TANK-SENSOR"
 #define DEFAULT_MODEL_VERSION   "0.0.1"
 #define DEFAULT_SN              "000000"
+
+#define DEFAULT_SENSOR_OFFSET       75.55255266646f
+#define DEFAULT_SENSOR_GAIN         1.0536452966328E-5
 
 #define WATER_LEVEL_TS          2000UL      // update every 2seconds
 
@@ -39,6 +42,15 @@ typedef enum
 }DEVICE_STATUS;
 
 
+typedef enum 
+{
+    DEV_MODEL       = 0,
+    DEV_VERSION     = 1,
+    DEV_FIRMWARE    = 2,
+    DEV_UUID        = 3,
+    DEV_SN          = 4,
+}DEV_INFO_TYPE;
+
 typedef struct
 {
     char MODEL [12];                    // device model
@@ -47,7 +59,6 @@ typedef struct
     char UUID [MAX_UUID_LENGTH+2];      // UUID
     char SN[24];                        // Serial Number
 }DEVICE_INFO;
-
 
 typedef struct
 {
@@ -62,14 +73,13 @@ typedef struct
 typedef struct 
 {
     float const_base_area;
-    float const_height;
+    float const_max_height;
 }TANK_PARAM;
 
 typedef struct 
 {
-    float slope,
+    float offset,
           gain;
-    /* data */
 }CAL_PARAM;
 
 
@@ -126,10 +136,18 @@ class BSP{
         static uint32_t waterLevel_millis;
         static DEVICE_INFO info;
         static DEVICE_PARAM param;
-        
+        static CAL_PARAM waterLevelCal;
+        static TANK_PARAM tank;
+
     private :
-        static DEVICE_STATUS BOARD_INIT_INFO(DEVICE_INFO *dev_info);
+
+        // device information
+        static DEVICE_STATUS BOARD_INIT_INFO(void);
         static void BOARD_RESET_INFO(void);
+
+        // sensor calibration parameter 
+        static DEVICE_STATUS SENSOR_INIT_CAL(void);
+        static void SENSOR_RESET_CAL(void);
 
         static HX710B waterLevel;
         static uint8_t waterLevel_flag;
@@ -139,8 +157,26 @@ class BSP{
         static void (*resetFunc)(void);
         static DEVICE_STATUS initialize(void);
         static void loop(void);
+        
+    //=================================== BOARD INFO function =======================
+        // store the parameter to memory ( EEPROM )
+        static bool updateBOARD_INFO(DEV_INFO_TYPE type, char* txt, uint8_t len);
+        // retireve board Information data structure
         static char* BOARD_GET_UUID(char* UUID, uint8_t len);
         
+        static const char* getINFO_MODEL(void){
+            return info.MODEL;
+        }
+        static const char* getINFO_VERSION(void){
+            return info.version;
+        }
+        static const char* getINFO_SN(void){
+            return info.SN;
+        }
+        static const char* getINFO_firmware(void){
+            return info.firm_ver;
+        }
+
         static void uint32To4bytes(uint32_t res, uint8_t* dest)
         {
             // MSB first

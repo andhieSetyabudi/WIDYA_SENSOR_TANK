@@ -2,6 +2,7 @@
 #include <Version.h>
 #include "CRC32.h"
 
+#define DEVICE_INFO_TO_EEPROM   writeMemory(DEV_INFO_ADDR,(uint8_t*)&BSP::info,sizeof(DEVICE_INFO))
 
 HX710B BSP::waterLevel(SCK_WATER_PIN, DO_WATER_PIN, HX710B_DIFF1);
 uint8_t BSP::waterLevel_flag = (uint8_t) DEV_OK,
@@ -11,6 +12,9 @@ uint32_t BSP::waterLevel_millis = 0;
 
 DEVICE_INFO BSP::info={0};
 DEVICE_PARAM BSP::param={0};
+CAL_PARAM BSP::waterLevelCal={0};
+TANK_PARAM BSP::tank = {0};
+
 void (*BSP::resetFunc)(void) = 0;
 
 
@@ -37,6 +41,38 @@ void BSP::BOARD_RESET_INFO(void)
     sprintf_P(info.version,(const char*)F(DEFAULT_MODEL_VERSION));
     sprintf_P(info.SN,(const char*)F("WIT-TS%s"),DEFAULT_SN);
 }
+
+DEVICE_STATUS BSP::BOARD_INIT_INFO(void)
+{
+    if(!readMemory(DEV_INFO_ADDR, (uint8_t*)&BSP::info,sizeof(DEVICE_INFO)))
+    {
+        BOARD_RESET_INFO();
+        DEVICE_INFO_TO_EEPROM;
+        // writeMemory(DEV_INFO_ADDR,(uint8_t*)&BSP::info,sizeof(DEVICE_INFO));
+        return DEV_ERROR;
+    }
+    return DEV_OK;
+}
+
+
+void BSP::SENSOR_RESET_CAL(void)
+{
+    BSP::waterLevelCal={0};
+    BSP::waterLevelCal.offset   = DEFAULT_SENSOR_OFFSET;
+    BSP::waterLevelCal.gain     = DEFAULT_SENSOR_GAIN;  
+}
+
+DEVICE_STATUS BSP::SENSOR_INIT_CAL(void)
+{
+    if(!readMemory(DEV_CAL_PARAM, (uint8_t*)&BSP::waterLevelCal,sizeof(CAL_PARAM)))
+    {
+        SENSOR_RESET_CAL();
+        writeMemory(DEV_CAL_PARAM,(uint8_t*)&BSP::waterLevelCal,sizeof(CAL_PARAM));
+        return DEV_ERROR;
+    }
+    return DEV_OK;
+}
+
 
 //=============== memory for load and store the parameter
 bool BSP::readMemory(uint8_t address, uint8_t *pData, size_t len)
@@ -90,6 +126,33 @@ bool BSP::writeMemory(uint8_t address, uint8_t *pData, size_t len)
     }
     free(crc_data);
     return true;
+}
+
+
+
+//========================================= public methods
+
+// support function
+bool BSP::updateBOARD_INFO(DEV_INFO_TYPE type, char* txt, uint8_t len)
+{
+    switch(type)
+    {
+        case DEV_MODEL :
+            strncpy(info.MODEL, txt, sizeof(info.MODEL));
+            break;
+        case DEV_VERSION :
+            strncpy(info.version, txt, sizeof(info.version));
+            break;
+        case DEV_FIRMWARE :
+        case DEV_UUID :
+            return false;
+            break;
+        case DEV_SN :
+        default :
+            strncpy(info.SN, txt, sizeof(info.SN));
+            break;
+    };
+    return DEVICE_INFO_TO_EEPROM;
 }
 
 DEVICE_STATUS BSP::initialize(void)
@@ -150,6 +213,11 @@ void BSP::loop(void)
             else
                 BSP::waterLevel_flag = (uint8_t) DEV_ERROR;
         }
+        BSP::param.heigth = (float) BSP::param.raw_data * BSP::waterLevelCal.gain - BSP::waterLevelCal.offset;
+        if ( BSP::param.heigth < 0 )
+            BSP::param.heigth = 0;
+        BSP::param.volume = BSP::param.heigth;
+
         Serial.print(F("Water level data raw : "));
         Serial.println((unsigned long)BSP::param.raw_data);
         Serial.print(F("Water level in cm : "));

@@ -138,8 +138,7 @@ void BSP::loop(void)
             {
                 BSP::waterLevel_error_count = 0;
                 BSP::waterLevel_flag == (uint8_t) DEV_OK;
-            }
-                
+            };
         }
         else
         {
@@ -153,6 +152,9 @@ void BSP::loop(void)
         }
         Serial.print(F("Water level data raw : "));
         Serial.println((unsigned long)BSP::param.raw_data);
+        Serial.print(F("Water level in cm : "));
+        float heigth = (1.0536452966328E-5*(float)BSP::param.raw_data) - 75.55255266646f;
+        Serial.println(heigth);
         BSP::waterLevel_millis = millis();
     }
 }

@@ -23,6 +23,7 @@ const uint8_t key_word []=
     COM_CMD_VERSION,
     COM_CMD_RN_SN,
     COM_CMD_WR_SN,
+    COM_CMD_WR_HOST,
     COM_CMD_LEVEL,
     COM_CMD_VOLUME,
     COM_CMD_RAW_DATA,
@@ -146,6 +147,83 @@ bool com::isPackageValid(const uint8_t* raw, uint8_t length, CMD_Identifier* ret
     if( loc >= length && proc <= 4 )
         return false;
     return true;
+}
+
+bool com::dataHandler(CMD_Identifier* var)
+{
+    if(!com::isCMDValid(var->cmd))
+        return false;
+    switch (var->cmd)
+    {
+        case COM_CMD_SLEEP :
+        case COM_CMD_RESTART:
+            BSP::resetFunc();
+            break;
+        case COM_CMD_PING :
+        case COM_CMD_UUID :
+        case COM_CMD_MODEL :
+        case COM_CMD_FIRMWARE :
+        case COM_CMD_VERSION :
+        case COM_CMD_RN_SN :
+        case COM_CMD_WR_SN :
+        case COM_CMD_WR_HOST :
+        case COM_CMD_LEVEL :
+        case COM_CMD_VOLUME :
+        case COM_CMD_RAW_DATA :
+        case COM_CMD_SF :
+        case COM_CMD_PUMP :
+        case COM_CMD_RD_HEIGHT :
+        case COM_CMD_WR_HEIGHT :
+        case COM_CMD_WR_BASE :
+        case COM_CMD_RD_BASE :
+    default:
+        break;
+    }
+    return true;
+}
+
+uint8_t com::createPackage(uint8_t CMD, uint8_t nack_ack, uint8_t* raw, uint8_t len, uint8_t* package_, uint8_t package_len)
+{
+    if( !isCMDValid(CMD) )
+        return false;
+    if ( nack_ack != COM_ACK && nack_ack != COM_NAK )
+        return 0;
+    if( package_len > 32 )
+        package_len = 32;
+    if( package_len < 9 ) // minimum data size, encapsulated size in bytes is 9
+        return 0;
+    if( len > 23 )      // max payload of NRF is 32bytes, but 9 bytes already used by package encapsulated
+        return 0;
+    // create header
+    package_[0] = COM_HEADER;
+    // command
+    package_[1] = CMD;
+    // data_length
+    package_[2] = len;
+    // data raw
+    if( len > 0 )
+    {
+        for(uint8_t l = 0; l < len; l++)
+        {
+            if ( 3+l <= 32 )
+                package_[3+l] = raw[l];
+        }
+        
+    }
+    // CRC32-bit
+    uint32_t CRC32_ = BSP::crc32((const char*)raw,len);
+    uint8_t crcByte[4];
+    BSP::uint32To4bytes(CRC32_, crcByte);
+    for(uint8_t l=0; l<4; l++)
+    {
+        package_[3+len+l] = crcByte[0];    
+    }
+    // NACK/ACK
+    package_[3+len+4] = nack_ack;
+    // Footer
+    package_[3+len+5] = COM_END;
+    return ( 9+len );
+    // printf(" length of data is : %d\r\n", 3+len+5);
 }
 
 

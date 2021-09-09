@@ -60,7 +60,7 @@
 #define COM_CMD_VERSION                 0x54
 #define COM_CMD_RN_SN                   0x55
 #define COM_CMD_WR_SN                   0x56
-
+#define COM_CMD_WR_HOST                 0x57
 
 // Sensor & data flag
 #define COM_CMD_LEVEL                   0x61
@@ -107,6 +107,10 @@ class com
         static uint64_t id_radio;
         static bool isCMDValid(byte key);
         static bool isPackageValid(const uint8_t* raw, uint8_t length, CMD_Identifier* ret);
+
+        static bool dataHandler(CMD_Identifier* var);
+        // retrieve the length of data_package
+        static uint8_t createPackage(uint8_t CMD, uint8_t nack_ack, uint8_t* raw, uint8_t len, uint8_t* package_, uint8_t package_len);
         static void clearRawCom(void);
     private :
         /**
@@ -121,6 +125,15 @@ class com
         
         CMD_Identifier raw_ident;
         static uint8_t radio_flag;
+
+        // radio function transmission data
+        static bool openTxRadio(void);
+        static bool closeTxRadio(void);
+        static bool openRxRadio(uint32_t id_receiver);
+        static bool closeRxRadio(void);
+
+        static bool radioTransmit(uint32_t id_hos, const char* raw, uint8_t len);
+
     public :
         static RADIO_INFO initialize(void);
         static void loop(void);

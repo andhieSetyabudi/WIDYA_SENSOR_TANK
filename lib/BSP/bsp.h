@@ -126,7 +126,7 @@ class BSP{
         static uint32_t waterLevel_millis;
         static DEVICE_INFO info;
         static DEVICE_PARAM param;
-        static void (*resetFunc)(void);
+        
     private :
         static DEVICE_STATUS BOARD_INIT_INFO(DEVICE_INFO *dev_info);
         static void BOARD_RESET_INFO(void);
@@ -135,6 +135,8 @@ class BSP{
         static uint8_t waterLevel_flag;
         static uint8_t waterLevel_error_count;
     public :
+
+        static void (*resetFunc)(void);
         static DEVICE_STATUS initialize(void);
         static void loop(void);
         static char* BOARD_GET_UUID(char* UUID, uint8_t len);
@@ -158,6 +160,26 @@ class BSP{
             tmp_ = (tmp_ << 8) | res[3];
             *dest = tmp_;
         };
+        static void fourByteToFloat(uint8_t *tmp, float *retVal)
+        {
+            uint32_t i;
+            i = tmp[0];
+            i = (i << 8) | tmp[1];
+            i = (i << 8) | tmp[2];
+            i = (i << 8) | tmp[3];
+            *retVal = *(float *)&i;
+        };
+
+        static void floatToFourByte(uint8_t *tmp,float val)
+        {
+            uint32_t i;
+            i = *((uint32_t *)&val);
+            tmp[0] = (i >> 24) & 0xff;
+            tmp[1] = (i >> 16) & 0xff;
+            tmp[2] = (i >> 8) & 0xff;
+            tmp[3] = i & 0xff;
+        };
+
         static uint32_t crc32(const char *s,size_t n) 
         {
             uint32_t crc=0xFFFFFFFF;
@@ -172,8 +194,12 @@ class BSP{
                 }
             }
             return ~crc;
-        }
+        };
 
+        static void copyMemory(void* source, void* dest, uint8_t size_)
+        {
+            memcpy(dest, source, size_);
+        };
         //=============== memory for load and store the parameter
         /**
          *  Read data from memory ( EEPROM )

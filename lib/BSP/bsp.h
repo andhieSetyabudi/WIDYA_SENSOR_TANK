@@ -58,6 +58,7 @@ typedef struct
     char firm_ver [12];                 // versi firmware
     char UUID [MAX_UUID_LENGTH+2];      // UUID
     char SN[24];                        // Serial Number
+    uint32_t id_host;
 }DEVICE_INFO;
 
 typedef struct
@@ -176,6 +177,10 @@ class BSP{
         static const char* getINFO_firmware(void){
             return info.firm_ver;
         }
+    //=================================== BOARD INFO function =======================
+
+    //=================================== sensor cal param function =================
+        static bool updateSENSOR_CAL(CAL_PARAM *var);
 
         static void uint32To4bytes(uint32_t res, uint8_t* dest)
         {

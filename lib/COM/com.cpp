@@ -151,6 +151,8 @@ bool com::isPackageValid(const uint8_t* raw, uint8_t length, CMD_Identifier* ret
 
 bool com::dataHandler(CMD_Identifier* var)
 {
+    bool need_send_data = false;
+    uint32_t tmp_id_host = 0;
     if(!com::isCMDValid(var->cmd))
         return false;
     switch (var->cmd)
@@ -160,12 +162,15 @@ bool com::dataHandler(CMD_Identifier* var)
             BSP::resetFunc();
             break;
         case COM_CMD_PING :
+
+            break;
         case COM_CMD_UUID :
         case COM_CMD_MODEL :
         case COM_CMD_FIRMWARE :
         case COM_CMD_VERSION :
         case COM_CMD_RN_SN :
         case COM_CMD_WR_SN :
+            // bool BSP::updateBOARD_INFO(DEV_INFO_TYPE type, char* txt, uint8_t len)
         case COM_CMD_WR_HOST :
         case COM_CMD_LEVEL :
         case COM_CMD_VOLUME :
@@ -182,6 +187,45 @@ bool com::dataHandler(CMD_Identifier* var)
     return true;
 }
 
+
+/**
+ * @brief 
+ * 
+ * 
+ * 
+ * @param CMD           refer to CMD table
+ * @param nack_ack      status NACK or ACK
+ * @param raw           data raw, plain data would be encapsulated to package-data
+ * @param len           length of data raw
+ * @param package_      data array ( packet-data ), to be sent from NRF
+ * @param package_len   length of packet-data
+ * @return uint8_t 
+ * 
+ * 
+ * how to use 
+ * float data_send = 0.345;
+    uint8_t data_raw[32];
+    uint8_t len_raw = 32;
+    memset(data_raw, 0, 32);
+    uint8_t databytes[sizeof(data_send)];
+    floatToFourByte(databytes,data_send);
+    for(uint8_t lo=0; lo<sizeof(data_send); lo++)
+    {
+        printf("\t %d", databytes[lo]);
+    }
+    
+    if( createPackage(COM_CMD_VOLUME, COM_ACK, &databytes, sizeof(databytes), data_raw, len_raw) >=9 )
+    {
+        printf("\r\ndata in bytes : %i", (uint32_t)data_send);
+        for(uint8_t l=0; l< sizeof(data_raw); l++)
+        {
+            printf ( " \t %d", data_raw[l]);
+        }
+    }
+    float data_send_retrieve = 0;
+    fourByteToFloat(databytes, &data_send_retrieve);
+    printf("\r\n retrieve %f", data_send_retrieve);
+ */
 uint8_t com::createPackage(uint8_t CMD, uint8_t nack_ack, uint8_t* raw, uint8_t len, uint8_t* package_, uint8_t package_len)
 {
     if( !isCMDValid(CMD) )
@@ -247,7 +291,7 @@ RADIO_INFO com::initialize(void)
         radio_flag = (uint8_t) RADIO_OK;
         // radio.enableDynamicPayloads(); 
         // radio.enableAckPayload();
-        // radio.enableDynamicPayloads();
+        radio.enableDynamicPayloads();
         Serial.print("open id radio ");
         uint32_t lsb = com::id_radio>>8 & 0xffffffff;
         uint32_t msb = com::id_radio & 0xffffffff;

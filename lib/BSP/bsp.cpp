@@ -2,7 +2,11 @@
 #include <Version.h>
 #include "CRC32.h"
 
-#define DEVICE_INFO_TO_EEPROM   writeMemory(DEV_INFO_ADDR,(uint8_t*)&BSP::info,sizeof(DEVICE_INFO))
+#define DEVICE_INFO_FROM_EEPROM     readMemory(DEV_INFO_ADDR, (uint8_t*)&BSP::info,sizeof(DEVICE_INFO))
+#define DEVICE_INFO_TO_EEPROM       writeMemory(DEV_INFO_ADDR,(uint8_t*)&BSP::info,sizeof(DEVICE_INFO))
+
+#define CAL_PARAM_FROM_EEPROM       readMemory(DEV_CAL_PARAM, (uint8_t*)&BSP::waterLevelCal,sizeof(CAL_PARAM))
+#define CAL_PARAM_TO_EEPROM         writeMemory(DEV_CAL_PARAM,(uint8_t*)&BSP::waterLevelCal,sizeof(CAL_PARAM))
 
 HX710B BSP::waterLevel(SCK_WATER_PIN, DO_WATER_PIN, HX710B_DIFF1);
 uint8_t BSP::waterLevel_flag = (uint8_t) DEV_OK,
@@ -44,11 +48,10 @@ void BSP::BOARD_RESET_INFO(void)
 
 DEVICE_STATUS BSP::BOARD_INIT_INFO(void)
 {
-    if(!readMemory(DEV_INFO_ADDR, (uint8_t*)&BSP::info,sizeof(DEVICE_INFO)))
+    if( ! DEVICE_INFO_FROM_EEPROM )
     {
         BOARD_RESET_INFO();
         DEVICE_INFO_TO_EEPROM;
-        // writeMemory(DEV_INFO_ADDR,(uint8_t*)&BSP::info,sizeof(DEVICE_INFO));
         return DEV_ERROR;
     }
     return DEV_OK;
@@ -64,10 +67,10 @@ void BSP::SENSOR_RESET_CAL(void)
 
 DEVICE_STATUS BSP::SENSOR_INIT_CAL(void)
 {
-    if(!readMemory(DEV_CAL_PARAM, (uint8_t*)&BSP::waterLevelCal,sizeof(CAL_PARAM)))
+    if(!CAL_PARAM_FROM_EEPROM)
     {
         SENSOR_RESET_CAL();
-        writeMemory(DEV_CAL_PARAM,(uint8_t*)&BSP::waterLevelCal,sizeof(CAL_PARAM));
+        CAL_PARAM_TO_EEPROM;
         return DEV_ERROR;
     }
     return DEV_OK;
@@ -135,13 +138,20 @@ bool BSP::writeMemory(uint8_t address, uint8_t *pData, size_t len)
 // support function
 bool BSP::updateBOARD_INFO(DEV_INFO_TYPE type, char* txt, uint8_t len)
 {
+    uint8_t len_cpy = 0;
     switch(type)
     {
         case DEV_MODEL :
-            strncpy(info.MODEL, txt, sizeof(info.MODEL));
+            if ( len > sizeof(info.MODEL) )
+                return false;
+            len_cpy = min(sizeof(info.MODEL), len );
+            strncpy(info.MODEL, txt, len_cpy);
             break;
         case DEV_VERSION :
-            strncpy(info.version, txt, sizeof(info.version));
+        if ( len > sizeof(info.version) )
+                return false;
+            len_cpy = min(sizeof(info.version), len );
+            strncpy(info.version, txt, len);
             break;
         case DEV_FIRMWARE :
         case DEV_UUID :
@@ -149,12 +159,23 @@ bool BSP::updateBOARD_INFO(DEV_INFO_TYPE type, char* txt, uint8_t len)
             break;
         case DEV_SN :
         default :
-            strncpy(info.SN, txt, sizeof(info.SN));
+        if ( len > sizeof(info.SN) )
+                return false;
+            len_cpy = min(sizeof(info.SN), len );
+            strncpy(info.SN, txt, len);
             break;
     };
     return DEVICE_INFO_TO_EEPROM;
 }
 
+
+bool BSP::updateSENSOR_CAL(CAL_PARAM *var)
+{
+    memcpy(&BSP::waterLevelCal, var, sizeof(CAL_PARAM));
+    return CAL_PARAM_TO_EEPROM;
+}
+
+//================================== main system of BSP ===================================
 DEVICE_STATUS BSP::initialize(void)
 {
     pinMode(PUMP_PIN, OUTPUT);

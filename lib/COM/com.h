@@ -27,6 +27,9 @@
  *      -> ACK/NACK is data-replied to server for status data 
  *      -> Footer is data received from server
  * 
+ *  Special case on PING register
+ *  a. If there is content ( data ) in PING package, the data must in 4bytes
+ *  b. Data in PING package would be indicated as ID-host where the module will reply to that ID
 */
 
 /**
@@ -96,7 +99,7 @@ typedef struct
             footer,
             data_location,
             total_length;
-    byte dataRaw[10];
+    byte dataRaw[16];
     uint32_t CRC32_;
 }CMD_Identifier;
 
